@@ -1,0 +1,123 @@
+<?xml version="1.0"?>
+<!--
+  Create 3 (official iRobot model) + 2D lidar on top + front RGB camera.
+  Lidar values mimic an RPLidar A1 and the camera a 640x480 webcam,
+  similar to what we mount on the real Create 3.
+-->
+<robot name="create3" xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <xacro:arg name="gazebo" default="ignition"/>
+  <xacro:arg name="namespace" default=""/>
+  <xacro:arg name="visualize_rays" default="false"/>
+
+  <xacro:include filename="$(find irobot_create_description)/urdf/create3.urdf.xacro"/>
+
+  <!-- ===================== Lidar ===================== -->
+  <xacro:property name="lidar_z" value="0.125"/>
+
+  <joint name="lidar_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="lidar_link"/>
+    <origin xyz="0 0 ${lidar_z}" rpy="0 0 0"/>
+  </joint>
+
+  <link name="lidar_link">
+    <visual>
+      <!-- Kept fully below the scan plane so the gpu_lidar doesn't see its own housing -->
+      <origin xyz="0 0 -0.025"/>
+      <geometry><cylinder radius="0.035" length="0.03"/></geometry>
+      <material name="lidar_black"><color rgba="0.1 0.1 0.1 1"/></material>
+    </visual>
+    <inertial>
+      <mass value="0.17"/>
+      <inertia ixx="1e-4" ixy="0" ixz="0" iyy="1e-4" iyz="0" izz="1e-4"/>
+    </inertial>
+  </link>
+
+  <gazebo reference="lidar_joint">
+    <preserveFixedJoint>true</preserveFixedJoint>
+  </gazebo>
+
+  <gazebo reference="lidar_link">
+    <sensor name="lidar" type="gpu_lidar">
+      <always_on>true</always_on>
+      <visualize>false</visualize>
+      <update_rate>10</update_rate>
+      <topic>scan</topic>
+      <ignition_frame_id>lidar_link</ignition_frame_id>
+      <ray>
+        <scan>
+          <horizontal>
+            <samples>360</samples>
+            <resolution>1</resolution>
+            <min_angle>-3.14159</min_angle>
+            <max_angle>3.14159</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+          <min>0.15</min>
+          <max>12.0</max>
+          <resolution>0.01</resolution>
+        </range>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.01</stddev>
+        </noise>
+      </ray>
+    </sensor>
+  </gazebo>
+
+  <!-- ===================== Camera ===================== -->
+  <joint name="camera_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="camera_link"/>
+    <origin xyz="0.13 0 0.10" rpy="0 0 0"/>
+  </joint>
+
+  <link name="camera_link">
+    <visual>
+      <geometry><box size="0.02 0.06 0.02"/></geometry>
+      <material name="camera_gray"><color rgba="0.3 0.3 0.3 1"/></material>
+    </visual>
+    <inertial>
+      <mass value="0.05"/>
+      <inertia ixx="1e-5" ixy="0" ixz="0" iyy="1e-5" iyz="0" izz="1e-5"/>
+    </inertial>
+  </link>
+
+  <!-- Optical frame (z forward, x right, y down), REP-103 convention -->
+  <joint name="camera_optical_joint" type="fixed">
+    <parent link="camera_link"/>
+    <child link="camera_optical_frame"/>
+    <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
+  </joint>
+  <link name="camera_optical_frame"/>
+
+  <gazebo reference="camera_joint">
+    <preserveFixedJoint>true</preserveFixedJoint>
+  </gazebo>
+
+  <gazebo reference="camera_link">
+    <sensor name="camera" type="camera">
+      <always_on>true</always_on>
+      <visualize>false</visualize>
+      <update_rate>15</update_rate>
+      <topic>camera/image_raw</topic>
+      <ignition_frame_id>camera_optical_frame</ignition_frame_id>
+      <camera>
+        <horizontal_fov>1.204</horizontal_fov>
+        <image>
+          <width>640</width>
+          <height>480</height>
+          <format>R8G8B8</format>
+        </image>
+        <clip>
+          <near>0.05</near>
+          <far>30</far>
+        </clip>
+      </camera>
+    </sensor>
+  </gazebo>
+
+</robot>

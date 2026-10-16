@@ -1,0 +1,39 @@
+# Usage:
+#   xhost +local:docker          # once per session, lets containers use your X11 display
+#   docker compose up --build sim
+#
+# All services share the host network and IPC, so ROS 2 (DDS) discovers
+# nodes across containers and from the host.
+
+x-ros-common: &ros-common
+  image: rcrew/create3-challenge:latest
+  network_mode: host
+  ipc: host
+  environment:
+    - DISPLAY=${DISPLAY}
+    - QT_X11_NO_MITSHM=1
+    - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-77}
+    - LIBGL_ALWAYS_SOFTWARE=${LIBGL_ALWAYS_SOFTWARE:-0}
+  volumes:
+    - /tmp/.X11-unix:/tmp/.X11-unix:rw
+  devices:
+    - /dev/dri:/dev/dri
+
+services:
+  sim:
+    <<: *ros-common
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      network: host
+    command: ros2 launch rcrew_sim sim.launch.py world:=${WORLD:-room}
+
+  # Debug shell: docker compose run --rm shell
+  shell:
+    <<: *ros-common
+    profiles: [tools]
+    stdin_open: true
+    tty: true
+    command: bash
+
+  # TODO (challenge): add the teleop and RViz services here.
