@@ -1,0 +1,21 @@
+# Windows (Docker Desktop + WSL2) overrides. Enabled through COMPOSE_FILE in
+# .env (see .env.windows.example), so the usual `docker compose ...` commands
+# work unchanged.
+#
+# - There is no /dev/dri in the Docker Desktop VM, so the device is dropped and
+#   rendering falls back to software (LIBGL_ALWAYS_SOFTWARE=1 in .env).
+# - Windows windows go through WSLg's X server instead of the host's /tmp/.X11-unix.
+#
+# If you add a service to docker-compose.yml that opens a window, add it here
+# too:  my_service: *windows
+
+x-windows: &windows
+  environment:
+    - DISPLAY=:0
+  volumes:
+    - /run/desktop/mnt/host/wslg/.X11-unix:/tmp/.X11-unix:rw
+  devices: !reset []
+
+services:
+  sim: *windows
+  shell: *windows

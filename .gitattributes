@@ -1,0 +1,3 @@
+# Keep LF endings even when cloned on Windows (core.autocrlf=true):
+# CRLF in shell scripts breaks them inside the Linux container.
+* text=auto eol=lf

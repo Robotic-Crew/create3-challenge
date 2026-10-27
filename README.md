@@ -12,11 +12,12 @@ Your job is to add two things:
 ## Requirements
 
 - Linux with X11 (Ubuntu 22.04/24.04 recommended). Wayland works through XWayland.
+  Windows 10/11 also works, see [Running on Windows](#running-on-windows).
 - Docker Engine 24+ with the `docker compose` plugin.
 - Intel/AMD GPU with Mesa drivers, which works out of the box. For NVIDIA, see [Troubleshooting](#troubleshooting).
 - About 6 GB of free disk space.
 
-## Running the simulation
+## Running the simulation (Linux)
 
 ```bash
 cp .env.example .env
@@ -39,6 +40,39 @@ docker compose run --rm shell
 ros2 topic list
 ```
 
+## Running on Windows
+
+Windows runs the same containers through Docker Desktop's WSL2 backend, and windows (Gazebo, RViz) are shown with WSLg, the X server that ships with WSL.
+
+Requirements:
+
+- Windows 11, or Windows 10 22H2 with WSL installed from the Microsoft Store (that version includes WSLg).
+- WSL up to date: run `wsl --update` in PowerShell, then `wsl --shutdown`.
+- [Docker Desktop](https://docs.docker.com/desktop/setup/install/windows-install/) 4.27 or later, using the **WSL 2 based engine** (Settings → General).
+- At least 8 GB of RAM for Docker (Settings → Resources, or `.wslconfig`).
+
+Steps, in **PowerShell** from the repo folder:
+
+```powershell
+Copy-Item .env.windows.example .env
+docker compose up --build sim
+```
+
+You don't need `xhost` on Windows. The rest of the commands are the same as on Linux:
+
+```powershell
+docker compose run --rm shell /ws/scripts/check_topics.sh
+docker compose run --rm shell
+```
+
+How it works: `.env.windows.example` sets `COMPOSE_FILE` so that every `docker compose` command also loads `docker-compose.windows.yml`. That file points the containers at WSLg's X11 socket and drops `/dev/dri`, which doesn't exist on Windows. **If you add a service that opens a window (RViz, for example), add it to `docker-compose.windows.yml` too** (one line: `my_service: *windows`).
+
+Things to know on Windows:
+
+- There's no GPU acceleration for OpenGL inside Docker Desktop, so rendering runs on the CPU (`LIBGL_ALWAYS_SOFTWARE=1`). Gazebo will be slower and the real time factor (RTF) may drop below 1. That's expected.
+- Use PowerShell or a WSL terminal, not Git Bash. Git Bash rewrites paths like `/ws/scripts/...` into Windows paths and the command fails.
+- Clone with Git for Windows as usual. The repo's `.gitattributes` keeps shell scripts with LF line endings.
+
 ## What's in the simulation
 
 | Topic | Type | Description |
@@ -58,6 +92,7 @@ Layout:
 ```
 docker/                 image Dockerfile and entrypoint
 docker-compose.yml      services (sim, shell)
+docker-compose.windows.yml  Windows overrides (WSLg display, no /dev/dri)
 ws/src/rcrew_sim/       ROS 2 package: URDF (Create 3 + lidar + camera), world, GUI config and launch file
 scripts/                utilities
 ```
@@ -125,6 +160,12 @@ We will test it on a clean machine following **only** your instructions.
 **`/dev/dri` doesn't exist.** Remove the `devices` section from `docker-compose.yml` and set `LIBGL_ALWAYS_SOFTWARE=1`.
 
 **`apt-get update` hangs or fails during the build.** Some Docker setups have broken DNS on the default bridge network. The build already uses `network: host` to avoid this. If it still fails, check your host's DNS settings.
+
+**Windows: `error gathering device information ... /dev/dri`.** The Windows overrides aren't loaded. Check that `.env` was copied from `.env.windows.example`, and that any new service is listed in `docker-compose.windows.yml`.
+
+**Windows: Gazebo doesn't open a window.** Check that WSLg works: `wsl -d Ubuntu xeyes` (or any GUI app) should open a window. If it doesn't, run `wsl --update` and restart. The containers use WSLg through Docker Desktop at `/run/desktop/mnt/host/wslg`.
+
+**Windows: `/entrypoint.sh: no such file or directory` or `bad interpreter`.** The scripts got CRLF line endings. Rebuild with `docker compose build --no-cache sim`. The Dockerfile strips them.
 
 **Topics aren't visible from another container or from the host.** Make sure everything uses the same `ROS_DOMAIN_ID`, and that `network_mode: host` and `ipc: host` are set.
 

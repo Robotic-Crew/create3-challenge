@@ -23,7 +23,10 @@ RUN . /opt/ros/humble/setup.sh && colcon build && rm -rf build log
 
 COPY scripts /ws/scripts
 COPY docker/entrypoint.sh /entrypoint.sh
-RUN echo 'source /ws/install/setup.bash' >> /root/.bashrc
+# Strip CRLF and restore the exec bit in case the repo was checked out on Windows.
+RUN sed -i 's/\r$//' /entrypoint.sh /ws/scripts/*.sh \
+    && chmod +x /entrypoint.sh /ws/scripts/*.sh \
+    && echo 'source /ws/install/setup.bash' >> /root/.bashrc
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["bash"]

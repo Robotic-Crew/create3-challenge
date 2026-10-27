@@ -37,3 +37,4 @@ services:
     command: bash
 
   # TODO (challenge): add the teleop and RViz services here.
+  # (Services that open a window also go in docker-compose.windows.yml.)
