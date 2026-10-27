@@ -13,6 +13,7 @@ Your job is to add two things:
 
 - Linux with X11 (Ubuntu 22.04/24.04 recommended). Wayland works through XWayland.
   Windows 10/11 also works, see [Running on Windows](#running-on-windows).
+  macOS also works, see [Running on macOS](#running-on-macos).
 - Docker Engine 24+ with the `docker compose` plugin.
 - Intel/AMD GPU with Mesa drivers, which works out of the box. For NVIDIA, see [Troubleshooting](#troubleshooting).
 - About 6 GB of free disk space.
@@ -73,6 +74,37 @@ Things to know on Windows:
 - Use PowerShell or a WSL terminal, not Git Bash. Git Bash rewrites paths like `/ws/scripts/...` into Windows paths and the command fails.
 - Clone with Git for Windows as usual. The repo's `.gitattributes` keeps shell scripts with LF line endings.
 
+## Running on macOS
+
+macOS has no X server that Docker containers can use, so on a Mac the windows (Gazebo, RViz) open in a virtual desktop that you see **in your browser**. It runs on both Apple Silicon and Intel Macs. The image builds natively for arm64, with no emulation.
+
+Requirements:
+
+- [Docker Desktop for Mac](https://docs.docker.com/desktop/setup/install/mac-install/) 4.27 or later. You don't need XQuartz.
+- At least 8 GB of RAM for Docker (Settings → Resources).
+
+Steps, from the repo folder:
+
+```bash
+cp .env.mac.example .env
+docker compose up --build sim
+```
+
+When Gazebo has started, open **http://localhost:6080/vnc.html** and click **Connect**. Gazebo is on that desktop. You don't need `xhost` on a Mac. The rest of the commands are the same as on Linux:
+
+```bash
+docker compose run --rm shell /ws/scripts/check_topics.sh
+docker compose run --rm shell
+```
+
+How it works: `.env.mac.example` sets `COMPOSE_FILE` so that every `docker compose` command also loads `docker-compose.mac.yml`. That file adds a `desktop` service (a virtual X display, Xvfb, served through noVNC on port 6080). The other containers draw on it through a shared X11 socket, and `/dev/dri` is dropped because it doesn't exist on a Mac. **If you add a service that opens a window (RViz, for example), add it to `docker-compose.mac.yml` too** (one line: `my_service: *mac`). It will show up on the same browser desktop.
+
+Things to know on macOS:
+
+- There's no GPU acceleration for OpenGL inside Docker Desktop, so rendering runs on the CPU (`LIBGL_ALWAYS_SOFTWARE=1`). Gazebo will be slower and the real time factor (RTF) will drop below 1. That's expected: simulated time just runs slower, and the topics and the robot behave the same.
+- To change the size of the browser desktop, set `RESOLUTION` in `.env` (for example `1440x900`).
+- Use noVNC's side menu to change the scaling, or to copy and paste between the Mac and the desktop.
+
 ## What's in the simulation
 
 | Topic | Type | Description |
@@ -93,6 +125,7 @@ Layout:
 docker/                 image Dockerfile and entrypoint
 docker-compose.yml      services (sim, shell)
 docker-compose.windows.yml  Windows overrides (WSLg display, no /dev/dri)
+docker-compose.mac.yml  macOS overrides (browser desktop via noVNC, no /dev/dri)
 ws/src/rcrew_sim/       ROS 2 package: URDF (Create 3 + lidar + camera), world, GUI config and launch file
 scripts/                utilities
 ```
@@ -166,6 +199,12 @@ We will test it on a clean machine following **only** your instructions.
 **Windows: Gazebo doesn't open a window.** Check that WSLg works: `wsl -d Ubuntu xeyes` (or any GUI app) should open a window. If it doesn't, run `wsl --update` and restart. The containers use WSLg through Docker Desktop at `/run/desktop/mnt/host/wslg`.
 
 **Windows: `/entrypoint.sh: no such file or directory` or `bad interpreter`.** The scripts got CRLF line endings. Rebuild with `docker compose build --no-cache sim`. The Dockerfile strips them.
+
+**macOS: `error gathering device information ... /dev/dri`, or Gazebo crashes with `could not connect to display`.** The macOS overrides aren't loaded. Check that `.env` was copied from `.env.mac.example`, and that any new service is listed in `docker-compose.mac.yml`.
+
+**macOS: http://localhost:6080 doesn't load.** Check that the `desktop` service is running with `docker compose ps`, and that nothing else on the Mac is using port 6080.
+
+**macOS: the browser desktop is black.** That's normal before Gazebo starts. The first launch can take a minute. Watch `docker compose logs -f sim`.
 
 **Topics aren't visible from another container or from the host.** Make sure everything uses the same `ROS_DOMAIN_ID`, and that `network_mode: host` and `ipc: host` are set.
 

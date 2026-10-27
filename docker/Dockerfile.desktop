@@ -1,0 +1,21 @@
+# Virtual X display viewable from a browser (noVNC), for hosts without an
+# X server that Docker can use (macOS). Clients (Gazebo, RViz) connect through
+# the shared /tmp/.X11-unix socket and render with Mesa (llvmpipe) themselves.
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        xvfb \
+        x11vnc \
+        novnc \
+        websockify \
+        openbox \
+        libgl1-mesa-dri \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY docker/desktop.sh /desktop.sh
+RUN sed -i 's/\r$//' /desktop.sh && chmod +x /desktop.sh
+
+EXPOSE 6080
+CMD ["/desktop.sh"]

@@ -1,0 +1,54 @@
+# macOS (Docker Desktop) overrides. Enabled through COMPOSE_FILE in .env (see
+# .env.mac.example), so the usual `docker compose ...` commands work unchanged.
+#
+# - macOS has no X server Docker can use, so the `desktop` service runs a
+#   virtual display (Xvfb) and shows it in the browser at http://localhost:6080.
+#   The other containers draw on it through a shared X11 socket volume.
+# - There is no /dev/dri in the Docker Desktop VM, so the device is dropped and
+#   rendering falls back to software (LIBGL_ALWAYS_SOFTWARE=1 in .env).
+#
+# If you add a service to docker-compose.yml that opens a window, add it here
+# too:  my_service: *mac
+
+x-mac: &mac
+  environment:
+    - DISPLAY=:1
+  volumes:
+    - x11:/tmp/.X11-unix
+  devices: !reset []
+  depends_on:
+    desktop:
+      condition: service_healthy
+
+services:
+  desktop:
+    image: rcrew/create3-desktop:latest
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.desktop
+    # Not on the host network: with Docker Desktop that's the VM's network,
+    # so a published port is what makes noVNC reachable from macOS.
+    ports:
+      - "6080:6080"
+    ipc: host
+    environment:
+      - RESOLUTION=${RESOLUTION:-1920x1080}
+    volumes:
+      - x11:/tmp/.X11-unix
+    healthcheck:
+      test: ["CMD", "test", "-S", "/tmp/.X11-unix/X1"]
+      interval: 2s
+      retries: 30
+
+  sim:
+    <<: *mac
+    # Recent Compose builds through bake, which refuses `network: host` unless
+    # granted with --allow. The DNS workaround it exists for is Linux-only.
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      network: !reset null
+  shell: *mac
+
+volumes:
+  x11:
