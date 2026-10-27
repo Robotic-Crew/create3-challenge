@@ -192,7 +192,12 @@ We will test it on a clean machine following **only** your instructions.
 
 **`/dev/dri` doesn't exist.** Remove the `devices` section from `docker-compose.yml` and set `LIBGL_ALWAYS_SOFTWARE=1`.
 
-**`apt-get update` hangs or fails during the build.** Some Docker setups have broken DNS on the default bridge network. The build already uses `network: host` to avoid this. If it still fails, check your host's DNS settings.
+**`apt-get update` hangs or fails during the build.** Some Docker setups have broken DNS on the default bridge network. Build the image on the host network instead, then start the sim without `--build`:
+```bash
+docker build --network host -t rcrew/create3-challenge:latest -f docker/Dockerfile .
+docker compose up sim
+```
+If it still fails, check your host's DNS settings. (`network: host` can't go in `docker-compose.yml`: recent Compose versions refuse to build with it, asking for `--allow=network.host`.)
 
 **Windows: `error gathering device information ... /dev/dri`.** The Windows overrides aren't loaded. Check that `.env` was copied from `.env.windows.example`, and that any new service is listed in `docker-compose.windows.yml`.
 

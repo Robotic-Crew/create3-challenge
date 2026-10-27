@@ -40,14 +40,7 @@ services:
       interval: 2s
       retries: 30
 
-  sim:
-    <<: *mac
-    # Recent Compose builds through bake, which refuses `network: host` unless
-    # granted with --allow. The DNS workaround it exists for is Linux-only.
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-      network: !reset null
+  sim: *mac
   shell: *mac
 
 volumes:
